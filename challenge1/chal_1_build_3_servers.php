@@ -1,7 +1,7 @@
 <?php
 
 $cloud_credentials_file = '/root/.rackspace_cloud_credentials';
-$server_build_number = '10';
+$server_build_number = '3';
 
 
 require_once ('/usr/lib/php5/php-opencloud/lib/rackspace.php');

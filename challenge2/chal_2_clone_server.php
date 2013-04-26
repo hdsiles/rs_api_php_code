@@ -41,7 +41,7 @@ if ($isCLI == 'true') {
     usage();
   }
 
-  /// Get Server Name
+  /// Get Server Name that will be the clone of the original
   if (isset($options['S'])) {
     $server_name = $options['S'];
     if (!(preg_match("/^([a-z0-9]+-)*[a-z0-9]+$/i", $server_name))) {
@@ -53,7 +53,7 @@ if ($isCLI == 'true') {
     usage();
   }
   
-  /// Get Flavor (Server Size)
+  /// Get Flavor (Server Size of new cloned server)
   if (isset($options['F'])) {
     $server_size = ($options['F'] + 1);
     if (!(preg_match("/^[0-9]$/", $server_size))) {
@@ -64,17 +64,29 @@ if ($isCLI == 'true') {
   else {
     $server_size = '2';
   }
-  
-  /// Get Image (uuid) to install with.
+
+  /// Get Image Name to create prior to server build.
   if (isset($options['I'])) {
-    $install_image = $options['I'];
-    if (!(preg_match("/^([a-z0-9]+-)*[a-z0-9]+$/i", $install_image))) {
-      print "Server image $install_image does not seem to be a valid format.\n";
+    $image_name = $options['I'];
+    if (!(preg_match("/^([a-z0-9]+-)*[a-z0-9]+$/i", $image_name))) {
+      print "Image name $image_name is not a valid name.\n";
+      usage();
+    }
+  }
+  else {
+    usage();
+  }
+
+  /// Get UUID to clone from.
+  if (isset($options['C'])) {
+    $clone_uuid = $options['C'];
+    if (!(preg_match("/^([a-z0-9]+-)*[a-z0-9]+$/i", $clone_uuid))) {
+      print "UUID for Server does not seem to be a valid format.\n";
       usage();
     }    
   }
   else {
-    $install_image = 'c195ef3b-9195-4474-b6f7-16e5bd86acd0';
+    usage();
   }
   
   /// Show Progress
@@ -84,53 +96,60 @@ if ($isCLI == 'true') {
   
 
 
-  /// Input checks are done, server build work below here:
-
+  /// Input checks are done, image and server build work below here:
   $compute = $conn->Compute('cloudServersOpenStack', $working_region);
-
-  /// Loop for challenge to SDK, production probably would not be a loop like this
   print "\n";
 
-  for ($c=1; $c<=$server_build_number; $c++) {
-    $server_name_c = "$server_name"."$c";
-    $servers[$c] = $compute->Server();
-    $servers[$c]->Create(array('name' => $server_name_c, 'flavor' => $compute->Flavor($server_size), 'image' => $compute->Image($install_image)));
-    print "Starting Build on: $server_name_c\n";
-  }
+  $sourceServ = $compute->Server("$clone_uuid");
+
+
+  /// Create an image from a server
+  $sourceServ->CreateImage("$image_name");
+  var_dump($sourceServ);
+
+
+
+exit;
+
+
+
+
+  /// Collect Server info and begin build on data given.
+  $server = $compute->Server();
+  $server->Create(array('name' => $server_name, 'flavor' => $compute->Flavor($server_size), 'image' => $compute->Image($install_image)));
+  print "Starting Build on: $server_name\n";
 
   print "\n-- Displaying info below as it becomes availiable --\n";
-  $build_complete = '0';
+
+
+  /// Watch server build and get back info about server.
   $update_sent=array();
-  while ($build_complete < $server_build_number) {
+  foreach ($servers as $serv_key => $server) {
     sleep(15);
-    foreach ($servers as $serv_key => $server) {
-      $server->Refresh($server->id);
-      if (in_array($server->status, array('ACTIVE', 'ERROR'))) {
+    $server->Refresh($server->id);
+    if (in_array($server->status, array('ACTIVE', 'ERROR'))) {
+      $server->ip('4');
+      printf("Completed: %s   uuid: %-38s   %3d%% ip: %-24s  root pass: %-18s\n", $server->name, $server->id, $server->progress, $server->addresses->public[0]->addr, $server->adminPass);
+      break;
+    }
+    elseif ((isset($verbose)) && ($verbose == '1')) {
+      if ( (isset($server->addresses->public[0]->addr)) && (!(empty($server->addresses->public[0]->addr))) ) {
         $server->ip('4');
-        printf("Completed: %s   uuid: %-38s   %3d%% ip: %-24s  root pass: %-18s\n", $server->name, $server->id, $server->progress, $server->addresses->public[0]->addr, $server->adminPass);
-        $build_complete++;
-        unset($servers[$serv_key]);
-      }
-      elseif ((isset($verbose)) && ($verbose == '1')) {
-        if ( (isset($server->addresses->public[0]->addr)) && (!(empty($server->addresses->public[0]->addr))) ) {
-          $server->ip('4');
-          printf(" Building: %s   uuid: %-38s   %3d%%  ip: %-24s  root pass: %-18s\n", $server->name, $server->id, $server->progress, $server->addresses->public[0]->addr, $server->adminPass);
-        }
-        else {
-          printf(" Building: %s   uuid: %-38s   %3d%%  Waiting on Networking...\n", $server->name, $server->id, $server->progress);
-        }
+        printf(" Building: %s   uuid: %-38s   %3d%%  ip: %-24s  root pass: %-18s\n", $server->name, $server->id, $server->progress, $server->addresses->public[0]->addr, $server->adminPass);
       }
       else {
-        if ( (isset($server->addresses->public[0]->addr)) && (!(empty($server->addresses->public[0]->addr))) && (!(array_key_exists($serv_key, $update_sent))) ) {
-          $server->ip('4');
-          printf(" Building: %s   uuid: %-38s   %3d%%  ip: %-24s  root pass: %-18s\n", $server->name, $server->id, $server->progress, $server->addresses->public[0]->addr, $server->adminPass);
-          $update_sent[$serv_key] = $serv_key;
-        }
-        continue;
+        printf(" Building: %s   uuid: %-38s   %3d%%  Waiting on Networking...\n", $server->name, $server->id, $server->progress);
       }
     }
+    else {
+      if ( (isset($server->addresses->public[0]->addr)) && (!(empty($server->addresses->public[0]->addr))) && (!(array_key_exists($serv_key, $update_sent))) ) {
+        $server->ip('4');
+        printf(" Building: %s   uuid: %-38s   %3d%%  ip: %-24s  root pass: %-18s\n", $server->name, $server->id, $server->progress, $server->addresses->public[0]->addr, $server->adminPass);
+        $update_sent[$serv_key] = $serv_key;
+      }
+      continue;
+    }
   }
-//  print_r($server);
   print "End Program.\n\n";
 }
 else {
@@ -146,13 +165,14 @@ function usage() {
 echo "\n";
 echo <<<PRINTUSAGE
   Required Options (Must be set in credentials file or specified here):
-    -R=region	     # Region (will default to credentials if set with NOVA_REGION_NAME).
-    -S="Server Name" # Server Name The new server you are creating.
-    -F="Flavor"	     # Size - Mem:  1) 512MB   2) 1GB   3) 2GB   4) 4GB   5) 8GB   6) 15GB   7) 30GB  (This example defaults to 512MB).
-    -I="Image"       # What Image name you are creating. ie: "My test image".
-    -V		     # Verbose output, Show more progress during build processes.
+    -R=region	      # Region (will default to credentials if set with NOVA_REGION_NAME).
+    -C="Clone Server" # UUID of the server that will be imaged, and used as a template for the new server.
+    -S="Server Name"  # Server Name The new server you are creating.
+    -F="Flavor"	      # Size - Mem:  1) 512MB   2) 1GB   3) 2GB   4) 4GB   5) 8GB   6) 15GB   7) 30GB  (This example defaults to 512MB).
+    -I="Image Name"        # What Image name you are creating. ie: "My test image".
+    -V		      # Verbose output, Show more progress during build processes.
     
-    Example:  php chal_2_clone_server.php -R=ORD -S"web" -F"1" -I"8ae428cd-0490-4f3a-818f-28213a7286b0"
+    Example:  php chal_2_clone_server.php -R=ORD -C"" -S"web" -F"1" -I"8ae428cd-0490-4f3a-818f-28213a7286b0"
 
 PRINTUSAGE;
 echo "\n";
