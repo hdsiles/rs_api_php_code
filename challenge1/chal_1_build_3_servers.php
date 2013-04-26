@@ -152,7 +152,7 @@ echo <<<PRINTUSAGE
     -I Image         # What Image UUID to build from. (This example will build from debian6.06 - 8ae428cd-0490-4f3a-818f-28213a7286b0 ).
     -V		     # Verbose output, Show more progress during build processes.
     
-    Example:  php chal_1_build_3_servers.php -R=ORD -S "web serv" -F 1 -I 8ae428cd-0490-4f3a-818f-28213a7286b0
+    Example:  php chal_1_build_3_servers.php -R=ORD -S"TestServ" -F"1" -I"8ae428cd-0490-4f3a-818f-28213a7286b0" 
 
 PRINTUSAGE;
 echo "\n";

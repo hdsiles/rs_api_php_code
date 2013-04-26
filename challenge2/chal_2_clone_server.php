@@ -1,8 +1,6 @@
 <?php
 
 $cloud_credentials_file = '/root/.rackspace_cloud_credentials';
-$server_build_number = '10';
-
 
 require_once ('/usr/lib/php5/php-opencloud/lib/rackspace.php');
 require_once ('/usr/lib/php5/php-opencloud/lib/compute.php');
@@ -25,9 +23,12 @@ if ($isCLI == 'true') {
   $shortopts .= "S:";
   $shortopts .= "F:";
   $shortopts .= "I:";
+  $shortopts .= "C:";
   $shortopts .= "V";
   
   $options = getopt($shortopts);
+
+print_r($options);
 
   /// Get the Region if its needed, will default to credentials file if it is set in that file.
   if (isset($options['R'])) {
@@ -45,11 +46,12 @@ if ($isCLI == 'true') {
   if (isset($options['S'])) {
     $server_name = $options['S'];
     if (!(preg_match("/^([a-z0-9]+-)*[a-z0-9]+$/i", $server_name))) {
-      print "Server name $server_name is not a valid name.\n";
+      print "New Server name $server_name is not a valid name.\n";
       usage();
     }
   }
   else {
+    print "Missing New Server name\n";
     usage();
   }
   
@@ -74,6 +76,7 @@ if ($isCLI == 'true') {
     }
   }
   else {
+    print "Missing image name that will be created\n";
     usage();
   }
 
@@ -86,6 +89,7 @@ if ($isCLI == 'true') {
     }    
   }
   else {
+    print "Missing source server uuid.\n";
     usage();
   }
   
@@ -165,14 +169,14 @@ function usage() {
 echo "\n";
 echo <<<PRINTUSAGE
   Required Options (Must be set in credentials file or specified here):
-    -R=region	      # Region (will default to credentials if set with NOVA_REGION_NAME).
-    -C="Clone Server" # UUID of the server that will be imaged, and used as a template for the new server.
-    -S="Server Name"  # Server Name The new server you are creating.
-    -F="Flavor"	      # Size - Mem:  1) 512MB   2) 1GB   3) 2GB   4) 4GB   5) 8GB   6) 15GB   7) 30GB  (This example defaults to 512MB).
-    -I="Image Name"        # What Image name you are creating. ie: "My test image".
-    -V		      # Verbose output, Show more progress during build processes.
+    -R=region	     # Region (will default to credentials if set with NOVA_REGION_NAME).
+    -C Clone Server  # UUID of the server that will be imaged, and used as a template for the new server.
+    -S "Server Name" # Server Name The new server you are creating.
+    -F Flavor	     # Size - Mem:  1) 512MB   2) 1GB   3) 2GB   4) 4GB   5) 8GB   6) 15GB   7) 30GB  (This example defaults to 512MB).
+    -I "Image Name"  # What Image name you are creating. ie: "My test image".
+    -V		     # Verbose output, Show more progress during build processes.
     
-    Example:  php chal_2_clone_server.php -R=ORD -C"" -S"web" -F"1" -I"8ae428cd-0490-4f3a-818f-28213a7286b0"
+    Example:  php chal_2_clone_server.php -R=ORD -C"abc123eb-86ts-1234-128673sh67" -S"new test" -F"1" -I"My image of source server"
 
 PRINTUSAGE;
 echo "\n";
