@@ -147,12 +147,12 @@ echo "\n";
 echo <<<PRINTUSAGE
   Required Options (Must be set in credentials file or specified here):
     -R=region	     # Region (will default to credentials if set with NOVA_REGION_NAME).
-    -S="Server Name" # Server Name (In this example the server name will be iterated 3 times).
-    -F="Flavor"	     # Size - Mem:  1) 512MB   2) 1GB   3) 2GB   4) 4GB   5) 8GB   6) 15GB   7) 30GB  (This example will choose 512MB).
-    -I="Image"       # What Image UUID to build from. (This example will build from debian6.06 - 8ae428cd-0490-4f3a-818f-28213a7286b0 ).
+    -S "Server Name" # Server Name (In this example the server name will be iterated 3 times).
+    -F Flavor	     # Size - Mem:  1) 512MB   2) 1GB   3) 2GB   4) 4GB   5) 8GB   6) 15GB   7) 30GB  (This example will choose 512MB).
+    -I Image         # What Image UUID to build from. (This example will build from debian6.06 - 8ae428cd-0490-4f3a-818f-28213a7286b0 ).
     -V		     # Verbose output, Show more progress during build processes.
     
-    Example:  php chal_1_build_3_servers.php -R=ORD -S"web" -F"1" -I"8ae428cd-0490-4f3a-818f-28213a7286b0"
+    Example:  php chal_1_build_3_servers.php -R=ORD -S "web serv" -F 1 -I 8ae428cd-0490-4f3a-818f-28213a7286b0
 
 PRINTUSAGE;
 echo "\n";
