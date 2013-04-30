@@ -28,8 +28,6 @@ if ($isCLI == 'true') {
   
   $options = getopt($shortopts);
 
-print_r($options);
-
   /// Get the Region if its needed, will default to credentials file if it is set in that file.
   if (isset($options['R'])) {
     $working_region = $options['R'];
@@ -98,24 +96,37 @@ print_r($options);
     $verbose='1';
   }
   
-
-
   /// Input checks are done, image and server build work below here:
   $compute = $conn->Compute('cloudServersOpenStack', $working_region);
   print "\n";
 
   $sourceServ = $compute->Server("$clone_uuid");
 
-
   /// Create an image from a server
-  $sourceServ->CreateImage("$image_name");
-  var_dump($sourceServ);
+  $tstamp_id = time();
+  $sourceServ->CreateImage("$image_name", array('clonetag' => $tstamp_id));
 
-
-
-exit;
-
-
+  while (true) {
+    $imagelist = $compute->ImageList(TRUE, array('type' => 'SNAPSHOT', 'serverRef' => "$clone_uuid"));
+    while($image = $imagelist->Next()) {
+      if ( (isset($image->metadata->clonetag)) && ($image->metadata->clonetag == $tstamp_id) ) {
+        $clone_name = $image->name;
+        $install_image = $image->id;
+        if (!(isset($image_start))) {
+          print 'Building Image: '.$clone_name.'   uuid: '.$install_image."\n";
+          $image_start='1';
+        }
+        if (isset($verbose)) {
+          print 'Image Progress: '.$image->progress.'%'."\n";
+        }
+        if ($image->progress == '100') {
+          print "\n";
+          break 2;
+        }
+      }
+    }
+    sleep(15);
+  }
 
 
   /// Collect Server info and begin build on data given.
@@ -127,16 +138,16 @@ exit;
 
 
   /// Watch server build and get back info about server.
-  $update_sent=array();
-  foreach ($servers as $serv_key => $server) {
+  $update_sent = '0';
+  while (true) {
     sleep(15);
     $server->Refresh($server->id);
     if (in_array($server->status, array('ACTIVE', 'ERROR'))) {
       $server->ip('4');
-      printf("Completed: %s   uuid: %-38s   %3d%% ip: %-24s  root pass: %-18s\n", $server->name, $server->id, $server->progress, $server->addresses->public[0]->addr, $server->adminPass);
+      printf("Completed: %s   uuid: %-38s   %3d%%  ip: %-24s  root pass: %-18s\n", $server->name, $server->id, $server->progress, $server->addresses->public[0]->addr, $server->adminPass);
       break;
     }
-    elseif ((isset($verbose)) && ($verbose == '1')) {
+    elseif (isset($verbose)) {
       if ( (isset($server->addresses->public[0]->addr)) && (!(empty($server->addresses->public[0]->addr))) ) {
         $server->ip('4');
         printf(" Building: %s   uuid: %-38s   %3d%%  ip: %-24s  root pass: %-18s\n", $server->name, $server->id, $server->progress, $server->addresses->public[0]->addr, $server->adminPass);
@@ -146,10 +157,10 @@ exit;
       }
     }
     else {
-      if ( (isset($server->addresses->public[0]->addr)) && (!(empty($server->addresses->public[0]->addr))) && (!(array_key_exists($serv_key, $update_sent))) ) {
+      if ( (isset($server->addresses->public[0]->addr)) && (!(empty($server->addresses->public[0]->addr))) && ($update_sent == '0') ) {
         $server->ip('4');
         printf(" Building: %s   uuid: %-38s   %3d%%  ip: %-24s  root pass: %-18s\n", $server->name, $server->id, $server->progress, $server->addresses->public[0]->addr, $server->adminPass);
-        $update_sent[$serv_key] = $serv_key;
+        $update_sent = '1';
       }
       continue;
     }
